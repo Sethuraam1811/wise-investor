@@ -1,0 +1,364 @@
+#ERD for data model:
+
+erDiagram
+    ORGANIZATION ||--o{ USER : "has"
+    ORGANIZATION ||--o{ ROLE : "defines"
+    ORGANIZATION ||--o{ PERMISSION : "scopes"
+    USER ||--o{ USER_ROLE : "assigned"
+    ROLE ||--o{ USER_ROLE : "assigned"
+    ROLE ||--o{ ROLE_PERMISSION : "grants"
+    PERMISSION ||--o{ ROLE_PERMISSION : "grants"
+
+    ORGANIZATION ||--o{ PARTY : "has"
+    PARTY ||--o{ PARTY_ROLE : "plays"
+    PARTY ||--o{ ADDRESS : "has"
+    PARTY ||--o{ CONTACT_POINT : "has"
+    PARTY ||--o{ CONSENT : "gave"
+
+    ORGANIZATION ||--o{ CAMPAIGN : "runs"
+    CAMPAIGN ||--o{ APPEAL : "has"
+    APPEAL ||--o{ PACKAGE : "uses"
+
+    ORGANIZATION ||--o{ FUND : "manages"
+    PROGRAM ||--o{ FUND : "optional-link"
+
+    ORGANIZATION ||--o{ DONATION : "receives"
+    PARTY ||--o{ DONATION : "donor"
+    PARTY ||--o{ DONATION : "tribute_for (0..1)"
+    APPEAL ||--o{ DONATION : "source (0..1)"
+    PACKAGE ||--o{ DONATION : "source (0..1)"
+
+    DONATION ||--o{ DONATION_LINE : "details"
+    FUND ||--o{ DONATION_LINE : "allocated to"
+    PROGRAM ||--o{ DONATION_LINE : "optional-link"
+
+    DONATION ||--o{ PAYMENT : "paid by"
+    PAYMENT_METHOD ||--o{ RECURRING_GIFT : "used by"
+    PARTY ||--o{ PAYMENT_METHOD : "owns"
+
+    PARTY ||--o{ PLEDGE : "makes"
+    PLEDGE ||--o{ PLEDGE_INSTALLMENT : "schedules"
+    PAYMENT ||--o{ PLEDGE_INSTALLMENT : "paid_payment (0..1)"
+    PARTY ||--o{ RECURRING_GIFT : "sets up"
+    PAYMENT_METHOD ||--o{ RECURRING_GIFT : "charges"
+
+    DONATION ||--o{ SOFT_CREDIT : "influenced by"
+    PARTY ||--o{ SOFT_CREDIT : "influencer"
+    DONATION ||--o{ MATCHING_CLAIM : "triggers"
+    PARTY ||--o{ MATCHING_CLAIM : "employer"
+    PAYMENT ||--o{ MATCHING_CLAIM : "paid_payment (0..1)"
+
+    ORGANIZATION ||--o{ PROGRAM : "runs"
+    ORGANIZATION ||--o{ BENEFICIARY : "tracks"
+    PARTY ||--o{ BENEFICIARY : "optional-person (0..1)"
+    PROGRAM ||--o{ SERVICE_EVENT : "logs"
+    SERVICE_EVENT ||--o{ SERVICE_BENEFICIARY : "relates"
+    BENEFICIARY ||--o{ SERVICE_BENEFICIARY : "relates"
+
+    PROGRAM ||--o{ OUTCOME_METRIC : "defines"
+    OUTCOME_METRIC ||--o{ OUTCOME_RECORD : "measured by"
+
+    ORGANIZATION {
+        PK id
+        string legal_name
+        string ein
+        string timezone
+        string status
+        datetime created_at
+    }
+
+    USER {
+        PK id
+        FK organization_id
+        string email
+        string password_hash
+        string status
+        datetime created_at
+        datetime last_login_at
+    }
+
+    ROLE {
+        PK id
+        FK organization_id
+        string name
+    }
+
+    PERMISSION {
+        PK id
+        string code
+        string description
+    }
+
+    USER_ROLE {
+        FK user_id
+        FK role_id
+    }
+
+    ROLE_PERMISSION {
+        FK role_id
+        FK permission_id
+    }
+
+    PARTY {
+        PK id
+        FK organization_id
+        enum type
+        string display_name
+        string given_name
+        string family_name
+        string org_name
+        date date_of_birth
+        string tax_id
+        datetime created_at
+        datetime updated_at
+        boolean is_deleted
+    }
+
+    PARTY_ROLE {
+        FK party_id
+        enum role_code
+        date start_date
+        date end_date
+    }
+
+    ADDRESS {
+        PK id
+        FK organization_id
+        FK party_id
+        enum kind
+        string line1
+        string line2
+        string line3
+        string city
+        string region
+        string postal_code
+        string country
+        boolean is_primary
+        date valid_from
+        date valid_to
+    }
+
+    CONTACT_POINT {
+        PK id
+        FK organization_id
+        FK party_id
+        enum channel
+        string value
+        boolean is_primary
+        datetime verified_at
+    }
+
+    CONSENT {
+        PK id
+        FK organization_id
+        FK party_id
+        enum channel
+        enum status
+        string legal_basis
+        datetime captured_at
+        string captured_by
+        string source
+    }
+
+    CAMPAIGN {
+        PK id
+        FK organization_id
+        string name
+        string code
+        date start_date
+        date end_date
+        decimal goal_amount
+        string status
+    }
+
+    APPEAL {
+        PK id
+        FK organization_id
+        FK campaign_id
+        string name
+        string code
+        enum channel
+        date start_date
+        date end_date
+    }
+
+    PACKAGE {
+        PK id
+        FK organization_id
+        FK appeal_id
+        string name
+        string code
+        decimal cost_per_unit
+        int audience_size
+    }
+
+    FUND {
+        PK id
+        FK organization_id
+        string name
+        string code
+        enum restriction
+        FK program_id
+    }
+
+    DONATION {
+        PK id
+        FK organization_id
+        FK donor_party_id
+        FK tribute_for_party_id
+        FK appeal_id
+        FK package_id
+        date donation_date
+        decimal intent_amount
+        string currency
+        enum received_via
+        string acknowledgement_status
+        string memo
+    }
+
+    DONATION_LINE {
+        PK id
+        FK organization_id
+        FK donation_id
+        FK fund_id
+        decimal amount
+        FK program_id
+        string notes
+    }
+
+    PAYMENT {
+        PK id
+        FK organization_id
+        FK donation_id
+        date payment_date
+        decimal amount
+        string currency
+        enum method
+        string external_ref
+        enum status
+    }
+
+    PAYMENT_METHOD {
+        PK id
+        FK organization_id
+        FK party_id
+        enum method
+        string token_ref
+        string last4
+        int expiry_month
+        int expiry_year
+        boolean is_default
+    }
+
+    PLEDGE {
+        PK id
+        FK organization_id
+        FK donor_party_id
+        date pledge_date
+        decimal total_amount
+        string currency
+        enum schedule
+        date start_date
+        date end_date
+        string status
+    }
+
+    PLEDGE_INSTALLMENT {
+        PK id
+        FK organization_id
+        FK pledge_id
+        date due_date
+        decimal due_amount
+        enum status
+        FK paid_payment_id
+    }
+
+    RECURRING_GIFT {
+        PK id
+        FK organization_id
+        FK donor_party_id
+        decimal amount
+        string currency
+        enum interval_unit
+        int interval_count
+        date next_charge_on
+        FK payment_method_id
+        boolean active
+    }
+
+    SOFT_CREDIT {
+        PK id
+        FK organization_id
+        FK donation_id
+        FK influencer_party_id
+        decimal amount
+        enum reason
+        string notes
+    }
+
+    MATCHING_CLAIM {
+        PK id
+        FK organization_id
+        FK donation_id
+        FK employer_party_id
+        datetime submitted_at
+        enum status
+        FK paid_payment_id
+    }
+
+    PROGRAM {
+        PK id
+        FK organization_id
+        string name
+        string code
+        string description
+        boolean active
+    }
+
+    BENEFICIARY {
+        PK id
+        FK organization_id
+        FK party_id
+        string external_id
+        string cohort_key
+        enum pii_level
+    }
+
+    SERVICE_EVENT {
+        PK id
+        FK organization_id
+        FK program_id
+        datetime occurred_at
+        string location
+        decimal units_delivered
+        string unit_type
+        string notes
+    }
+
+    SERVICE_BENEFICIARY {
+        FK service_event_id
+        FK beneficiary_id
+        enum role
+    }
+
+    OUTCOME_METRIC {
+        PK id
+        FK organization_id
+        FK program_id
+        string name
+        string code
+        string unit
+        enum direction
+        decimal target_value
+    }
+
+    OUTCOME_RECORD {
+        PK id
+        FK organization_id
+        FK outcome_metric_id
+        date period_start
+        date period_end
+        decimal value
+        string source
+        datetime collected_at
+    }
