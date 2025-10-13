@@ -1,0 +1,341 @@
+# Analytics Test Data Generation Suite
+
+Complete test data generation system for the Organization Management Platform Analytics API.
+
+## 📋 Overview
+
+This suite generates comprehensive, realistic test data to support all Analytics API endpoints documented in your API specification. It creates:
+
+- **3,500+ total database records** across 30+ tables
+- **Realistic relationships** between entities
+- **Time-series data** for trend analysis
+- **Multi-year historical data** for comparisons
+
+## 🗂️ Files
+
+1. **`generate_data.py`** - Base data generation
+   - Organizations, users, permissions, roles
+   - Parties (donors & beneficiaries)
+   - Donations, payments, pledges
+   - Programs, campaigns, appeals
+   - Contact points, addresses, payment methods
+
+2. **`generate_analytics_data.py`** - Analytics enhancement
+   - Strategic planning (mission, vision, SWOT)
+   - Digital metrics (website, email campaigns)
+   - Audience tracking (email lists, social followers)
+   - Strategic initiatives (90-day bets, 1-year objectives)
+   - Channel attribution for donations
+
+3. **`run_all_data_generation.py`** - Master orchestration script
+   - Runs both scripts in sequence
+   - Validates completion
+   - Provides summary report
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+```bash
+pip install faker sqlalchemy psycopg2-binary
+```
+
+### Option 1: Run Everything (Recommended)
+
+```bash
+python run_all_data_generation.py
+```
+
+This will:
+1. Clear existing test data
+2. Generate all base data
+3. Add analytics enhancements
+4. Display completion summary
+
+### Option 2: Run Scripts Individually
+
+```bash
+# Step 1: Generate base data
+python generate_data.py
+
+# Step 2: Add analytics data
+python generate_analytics_data.py
+```
+
+## 📊 Generated Data Details
+
+### Base Data (generate_data.py)
+
+| Entity | Count | Purpose |
+|--------|-------|---------|
+| Organizations | 10 | Different nonprofit organizations |
+| Permissions | 20 | Access control |
+| Roles | 30 | User role definitions |
+| Users | 50 | System users |
+| Programs | 40 | Service programs |
+| Campaigns | 30 | Fundraising campaigns |
+| Appeals | 50 | Marketing appeals |
+| Packages | 80 | Appeal packages |
+| Parties | 200 | Donors & beneficiaries |
+| Contact Points | 400 | Email, phone, mobile |
+| Addresses | 250 | Physical addresses |
+| Payment Methods | 150 | Credit cards, bank accounts |
+| Funds | 50 | Restricted/unrestricted funds |
+| Donations | 500 | One-time and recurring gifts |
+| Payments | 600 | Payment transactions |
+| Donation Lines | 600 | Program allocations |
+| Pledges | 100 | Multi-year commitments |
+| Pledge Installments | 300 | Payment schedules |
+| Recurring Gifts | 80 | Monthly giving |
+| Soft Credits | 100 | Influenced donations |
+| Matching Claims | 50 | Corporate matches |
+| Beneficiaries | 120 | Program participants |
+| Service Events | 150 | Program delivery |
+| Service Beneficiaries | 300 | Event participation |
+| Outcome Metrics | 80 | Success measures |
+| Outcome Records | 400 | Outcome tracking |
+| Consents | 200 | Marketing permissions |
+| Party Roles | 150 | Donor, volunteer, etc. |
+
+### Analytics Data (generate_analytics_data.py)
+
+| Entity | Count | Purpose |
+|--------|-------|---------|
+| Strategic Planning | 10 | Mission, vision, objectives |
+| SWOT Analysis | 120 | Strategic analysis (12 per org) |
+| Digital Metrics | 120 | Monthly website/email metrics |
+| Audience Tracking | 240 | Email list & social growth |
+| Strategic Initiatives | 40 | 90-day & 1-year bets |
+| Initiative Milestones | 160 | Progress tracking |
+| Channel Attribution | 500 | Online/offline/event |
+| Campaign Variance | 30 | Budget vs. actual |
+
+## 🎯 API Endpoint Coverage
+
+### Core Analytics (Tier 1)
+
+| Endpoint | Data Source | Status |
+|----------|-------------|--------|
+| Mission & Vision | `strategic_planning` table | ✅ Ready |
+| SWOT Analysis | `swot_analysis` table | ✅ Ready |
+| Lifecycle Snapshot | `donations`, `parties` | ✅ Ready |
+| Fundraising Vitals | `donations`, `funds` | ✅ Ready |
+| Audience Metrics | `audience_tracking` | ✅ Ready |
+| Revenue Rollup | `donations`, channel data | ✅ Ready |
+| Program Impact | `programs`, `service_events`, `outcome_records` | ✅ Ready |
+| Digital KPIs | `digital_metrics` | ✅ Ready |
+| High Impact Targets | `strategic_initiatives`, `initiative_milestones` | ✅ Ready |
+
+### Advanced Analytics (Tier 2)
+
+| Endpoint | Data Source | Status |
+|----------|-------------|--------|
+| Donor Lifecycle Analytics | `parties`, `donations`, cohort analysis | ✅ Ready |
+| Missional Impact Correlation | `programs`, `donation_lines`, `outcome_records` | ✅ Ready |
+| WiseInvestor 2×2 Matrix | POST endpoint (no stored data needed) | ✅ Ready |
+
+## 🔍 Testing Examples
+
+### Get Organization IDs
+
+After running the scripts, you'll see output like:
+```
+✅ Created 10 organizations
+```
+
+Query your database to get organization IDs:
+```sql
+SELECT id, legal_name FROM organizations;
+```
+
+### Example API Calls
+
+```bash
+# Set your org ID
+ORG_ID="550e8400-e29b-41d4-a716-446655440000"
+TOKEN="your_jwt_token"
+
+# Mission & Vision
+curl -X GET "http://localhost:8000/analytics/mission-vision/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+
+# SWOT Analysis
+curl -X GET "http://localhost:8000/analytics/swot/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+
+# Lifecycle Snapshot
+curl -X GET "http://localhost:8000/analytics/lifecycle/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+
+# Fundraising Vitals
+curl -X GET "http://localhost:8000/analytics/fundraising-vitals/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+
+# Audience Metrics
+curl -X GET "http://localhost:8000/analytics/audience-metrics/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+
+# Revenue Rollup
+curl -X GET "http://localhost:8000/analytics/revenue-rollup/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+
+# Program Impact
+curl -X GET "http://localhost:8000/analytics/program-impact/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+
+# Digital KPIs
+curl -X GET "http://localhost:8000/analytics/digital-kpis/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+
+# Strategic Initiatives
+curl -X GET "http://localhost:8000/analytics/high-impact-targets/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+
+# Donor Lifecycle (Advanced)
+curl -X GET "http://localhost:8000/analytics/advanced/donor-lifecycle/${ORG_ID}?include_at_risk=true" \
+  -H "Authorization: Bearer ${TOKEN}"
+
+# Impact Correlation (Advanced)
+curl -X GET "http://localhost:8000/analytics/advanced/impact-correlation/${ORG_ID}?lag_months=3" \
+  -H "Authorization: Bearer ${TOKEN}"
+
+# WiseInvestor Matrix (Advanced)
+curl -X POST "http://localhost:8000/analytics/advanced/wise-investor/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '[{
+    "name": "Monthly Giving Program",
+    "strategic_alignment_score": 9.0,
+    "investment_maturity_score": 3.0,
+    "estimated_cost": 15000
+  }]'
+```
+
+## 📈 Data Characteristics
+
+### Realistic Distributions
+
+- **Donor Pyramid**: Follows realistic distribution (many small, few large)
+- **Retention Rates**:
+  - Overall: 60-75%
+  - First-year: 40-50%
+  - Major donors: 85-95%
+- **Gift Sizes**: Log-normal distribution ($10 - $10,000)
+- **Channel Mix**: 35% online, 45% offline, 20% events
+- **Donor Lifecycle**: Realistic progression through stages
+
+### Time-Series Data
+
+- **Donations**: Spread over 2 years
+- **Digital Metrics**: 12 months of monthly data
+- **Audience Tracking**: 24 months of growth data
+- **Campaigns**: Various start/end dates
+- **Strategic Initiatives**: Current and future dates
+
+### Relationships
+
+- All foreign keys properly linked
+- Multi-org data (each org independent)
+- Realistic cardinalities (1:many, many:many)
+- Optional relationships handled
+
+## 🐛 Troubleshooting
+
+### Issue: "Table already exists" errors
+
+**Solution**: The scripts handle this automatically with `CREATE TABLE IF NOT EXISTS`
+
+### Issue: Foreign key constraint errors
+
+**Solution**: Ensure you run `generate_data.py` before `generate_analytics_data.py`
+
+### Issue: No data returned from API
+
+**Solution**:
+1. Verify organization ID exists: `SELECT * FROM organizations;`
+2. Check table has data: `SELECT COUNT(*) FROM donations;`
+3. Ensure API server is running
+
+### Issue: Database connection errors
+
+**Solution**: Update `database.py` with correct credentials:
+```python
+DATABASE_URL = "postgresql://user:password@localhost:5432/dbname"
+```
+
+## 🔄 Re-running Scripts
+
+The scripts are designed to be re-runnable:
+
+1. **Clear and regenerate**: Both scripts clear existing data first
+2. **Idempotent**: Safe to run multiple times
+3. **Consistent**: Uses fixed random seeds (12345) for reproducibility
+
+To regenerate with different data, change the seed:
+```python
+Faker.seed(67890)  # New seed value
+random.seed(67890)
+```
+
+## 📝 Customization
+
+### Adjust Data Volumes
+
+In `generate_data.py`:
+```python
+# Change these numbers
+for i in range(500):  # Number of donations
+for i in range(50):   # Number of users
+```
+
+In `generate_analytics_data.py`:
+```python
+for i in range(12):  # Months of digital metrics
+for i in range(24):  # Months of audience tracking
+```
+
+### Modify Data Distributions
+
+```python
+# Gift amounts
+donation.intent_amount = random.uniform(10, 10000)  # Change range
+
+# Retention rates
+retention_rate = random.uniform(0.6, 0.75)  # Adjust percentage
+
+# Channel mix
+channels = ["online", "offline", "event"]
+channel_weights = [0.35, 0.45, 0.20]  # Adjust distribution
+```
+
+## 🎓 Best Practices
+
+1. **Always backup** your database before running
+2. **Run scripts in order**: Base data → Analytics data
+3. **Verify completion**: Check the summary output
+4. **Test incrementally**: Test one endpoint at a time
+5. **Use realistic org IDs**: Copy from the generation output
+
+## 📚 Additional Resources
+
+- [API Documentation](./Api_doc_new.pdf)
+- [Database Schema](./schema_diagram.png)
+- [Faker Documentation](https://faker.readthedocs.io/)
+- [SQLAlchemy Documentation](https://docs.sqlalchemy.org/)
+
+## 🤝 Contributing
+
+To add new analytics data:
+
+1. Create table in `create_analytics_tables()`
+2. Add generation logic in `generate_analytics_data()`
+3. Update this README with data counts
+4. Test the related API endpoint
+
+## 📄 License
+
+This is test data generation code for development and testing purposes.
+
+---
+
+**Need Help?** Check the troubleshooting section or review the inline comments in the scripts.

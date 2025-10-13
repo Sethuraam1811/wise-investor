@@ -1,0 +1,125 @@
+steps to run the entire application
+
+1. check out the entire code base with just python files
+2.  sudo pkill -f uvicorn -> uvicorn is similar to Tomcat 
+3.create container: source venv/bin/activate
+4. Run the server:  uvicorn main:app --reload --host 0.0.0.0 --port 8000
+5. You should be able to see the log saying 
+	INFO:     Started server process [2400]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+6. Once the server is up and running, you can access the swagger docs http://<your_ip>:8000/docs
+
+If you are installing for the first time with PostgreSQL:
+  1. create the schema using the schema py 
+   # Setup database
+sudo -u postgres psql << 'EOSQL'
+CREATE USER orguser WITH PASSWORD 'orgpassword';
+CREATE DATABASE organization_db OWNER orguser;
+GRANT ALL PRIVILEGES ON DATABASE organization_db TO orguser;
+\q
+EOSQL
+
+# Update .env file
+cat > .env << 'EOF'
+DATABASE_URL=postgresql://orguser:orgpassword@localhost:5432/organization_db
+SECRET_KEY=change-this-to-a-secure-random-string
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+EOF
+
+
+python3 -m venv venv
+source venv/bin/activate
+
+pip install -r requirements.txt
+
+# Initialize database tables
+python3 << 'EOPY'
+from database import engine
+import models
+models.Base.metadata.create_all(bind=engine)
+EOPY
+
+# Run the application
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+
+# Create database tables
+python3 << 'EOPY'
+from database import engine
+import models
+models.Base.metadata.create_all(bind=engine)
+print("✅ Database tables created!")
+EOPY
+
+
+# Create database and user
+sudo -u postgres psql << 'EOSQL'
+CREATE USER orguser WITH PASSWORD 'orgpassword';
+CREATE DATABASE organization_db OWNER orguser;
+GRANT ALL PRIVILEGES ON DATABASE organization_db TO orguser;
+\q
+EOSQL
+
+# Setup and run your API
+cd ~/organization-api
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python3 -c "from database import engine; import models; models.Base.metadata.create_all(bind=engine)"
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+
+# Test connection
+psql -U orguser -d organization_db -h localhost -c "SELECT version();"
+# Enter password: orgpassword
+
+
+
+
+UI: react js:
+npm create vite@latest nonprofit-dashboard -- --template react
+cd nonprofit-dashboard
+
+# Install all dependencies
+npm install
+# Install required packages for the dashboard
+npm install recharts lucide-react
+# Install Tailwind CSS
+npm install -D tailwindcss postcss autoprefixer
+
+# Create tailwind.config.js
+cat > tailwind.config.js << 'EOF'
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+EOF
+
+# Create postcss.config.js
+cat > postcss.config.js << 'EOF'
+export default {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}
+EOF
+
+# Update src/index.css
+cat > src/index.css << 'EOF'
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+EOF
+
+copy the App.js file to src directory
+npm run dev
