@@ -1,0 +1,579 @@
+# Analytics API Testing Guide
+
+Quick reference for testing each API endpoint with the generated data.
+
+## 🔑 Before You Start
+
+1. **Get Organization ID**:
+```sql
+SELECT id, legal_name FROM organizations LIMIT 1;
+```
+
+2. **Get Auth Token**:
+```bash
+curl -X POST "http://localhost:8000/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@org.com", "password": "password"}'
+```
+
+3. **Set Environment Variables**:
+```bash
+export ORG_ID="your-org-id-here"
+export TOKEN="your-jwt-token-here"
+export API_URL="http://localhost:8000"
+```
+
+## 📊 Core Analytics Endpoints
+
+### 1. Mission & Vision
+**Endpoint**: `GET /analytics/mission-vision/{organization_id}`
+
+**Data Source**: `strategic_planning` table
+
+**Test Command**:
+```bash
+curl -X GET "${API_URL}/analytics/mission-vision/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+
+**Expected Response Fields**:
+- `mission`: Organization's mission statement
+- `vision`: Organization's vision statement
+- `brand_promise`: Brand commitment
+- `owner`: Responsible person
+- `last_updated`: Last update timestamp
+- `north_star_objective`: Strategic objective
+
+**Verify Data**:
+```sql
+SELECT mission, vision, north_star_objective
+FROM strategic_planning
+WHERE organization_id = 'YOUR_ORG_ID';
+```
+
+---
+
+### 2. SWOT Analysis
+**Endpoint**: `GET /analytics/swot/{organization_id}`
+
+**Data Source**: `swot_analysis` table
+
+**Test Command**:
+```bash
+curl -X GET "${API_URL}/analytics/swot/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+
+**Expected Response**: Array of 4 objects (strengths, weaknesses, opportunities, threats)
+
+**Verify Data**:
+```sql
+SELECT category, COUNT(*)
+FROM swot_analysis
+WHERE organization_id = 'YOUR_ORG_ID'
+GROUP BY category;
+-- Should show 3 items per category (12 total)
+```
+
+---
+
+### 3. Lifecycle Snapshot
+**Endpoint**: `GET /analytics/lifecycle/{organization_id}`
+
+**Data Source**: `donations`, `parties`
+
+**Test Command**:
+```bash
+curl -X GET "${API_URL}/analytics/lifecycle/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+
+**Query Parameters**:
+- `segment`: Filter by donor segment (optional)
+- `channel`: Filter by channel (optional)
+- `campaign_id`: Filter by campaign (optional)
+
+**Expected Response**: Array of 5 lifecycle stages:
+- Acquisition
+- Conversion
+- Cultivation
+- Stewardship
+- Reactivation
+
+**Verify Data**:
+```sql
+-- Check donation distribution
+SELECT
+  CASE
+    WHEN COUNT(*) = 0 THEN 'Acquisition'
+    WHEN COUNT(*) = 1 THEN 'Conversion'
+    WHEN COUNT(*) >= 2 AND SUM(intent_amount) < 5000 THEN 'Cultivation'
+    WHEN SUM(intent_amount) >= 5000 THEN 'Stewardship'
+  END as stage,
+  COUNT(DISTINCT party_id) as donor_count
+FROM donations
+WHERE organization_id = 'YOUR_ORG_ID'
+GROUP BY party_id;
+```
+
+---
+
+### 4. Fundraising Vitals
+**Endpoint**: `GET /analytics/fundraising-vitals/{organization_id}`
+
+**Data Source**: `funds`, `donations`, `parties`
+
+**Test Command**:
+```bash
+curl -X GET "${API_URL}/analytics/fundraising-vitals/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+
+**Expected Response Fields**:
+- `income_diversification`: By fund restriction type
+- `donor_pyramid`: Count by gift level
+- `retention_rates`: Overall, first-year, major
+- `avg_gift`: Average donation amount
+- `multi_year_donors`: Count of loyal donors
+- `inflow_lapsed_ratio`: New vs. lapsed ratio
+
+**Verify Data**:
+```sql
+-- Check fund distribution
+SELECT restriction, COUNT(*)
+FROM funds
+WHERE organization_id = 'YOUR_ORG_ID'
+GROUP BY restriction;
+
+-- Check donation amounts
+SELECT
+  CASE
+    WHEN intent_amount < 100 THEN '<$100'
+    WHEN intent_amount < 500 THEN '$100-499'
+    WHEN intent_amount < 1000 THEN '$500-999'
+    WHEN intent_amount < 5000 THEN '$1k-4.9k'
+    WHEN intent_amount < 10000 THEN '$5k-9.9k'
+    ELSE '$10k+'
+  END as gift_level,
+  COUNT(*) as count
+FROM donations
+WHERE organization_id = 'YOUR_ORG_ID'
+GROUP BY gift_level;
+```
+
+---
+
+### 5. Audience Metrics
+**Endpoint**: `GET /analytics/audience-metrics/{organization_id}`
+
+**Data Source**: `audience_tracking`, `donations`
+
+**Test Command**:
+```bash
+curl -X GET "${API_URL}/analytics/audience-metrics/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+
+**Expected Response Fields**:
+- `active_donors`: Donors who gave in last 24 months
+- `donors_gte_1k`: Annual giving ≥ $1,000
+- `donors_gte_10k`: Annual giving ≥ $10,000
+- `email_list_size`: Total email subscribers
+- `social_followers`: Social media followers
+- All fields include `_yoy_delta` for year-over-year change
+
+**Verify Data**:
+```sql
+-- Check audience tracking (most recent)
+SELECT email_list_size, social_followers, tracking_date
+FROM audience_tracking
+WHERE organization_id = 'YOUR_ORG_ID'
+ORDER BY tracking_date DESC
+LIMIT 2;
+
+-- Check active donors
+SELECT COUNT(DISTINCT party_id)
+FROM donations
+WHERE organization_id = 'YOUR_ORG_ID'
+  AND received_date >= NOW() - INTERVAL '24 months';
+```
+
+---
+
+### 6. Revenue Rollup
+**Endpoint**: `GET /analytics/revenue-rollup/{organization_id}`
+
+**Data Source**: `donations` with channel attribution
+
+**Test Command**:
+```bash
+curl -X GET "${API_URL}/analytics/revenue-rollup/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+
+**Expected Response**: Array of 3 years with:
+- `total_revenue`
+- `online_revenue`
+- `offline_revenue`
+- `event_revenue`
+- `first_gift_count`
+- `major_gift_count`
+- `variance_vs_plan`
+
+**Verify Data**:
+```sql
+SELECT
+  EXTRACT(YEAR FROM received_date) as year,
+  channel,
+  COUNT(*) as donation_count,
+  SUM(intent_amount) as total_revenue
+FROM donations
+WHERE organization_id = 'YOUR_ORG_ID'
+GROUP BY year, channel
+ORDER BY year, channel;
+```
+
+---
+
+### 7. Program Impact
+**Endpoint**: `GET /analytics/program-impact/{organization_id}`
+
+**Data Source**: `programs`, `service_events`, `outcome_records`
+
+**Test Command**:
+```bash
+curl -X GET "${API_URL}/analytics/program-impact/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+
+**Expected Response**: Array of programs with:
+- `beneficiaries_served`
+- `units_delivered`
+- `hours_delivered`
+- `cost_per_outcome`
+- `progress_vs_target`
+- `quarterly_target`
+
+**Verify Data**:
+```sql
+-- Check programs
+SELECT p.id, p.code, p.description,
+       COUNT(DISTINCT sb.beneficiary_id) as beneficiaries,
+       SUM(se.units_delivered) as units
+FROM programs p
+LEFT JOIN service_events se ON p.id = se.program_id
+LEFT JOIN service_beneficiaries sb ON se.id = sb.service_event_id
+WHERE p.organization_id = 'YOUR_ORG_ID'
+GROUP BY p.id;
+```
+
+---
+
+### 8. Digital KPIs
+**Endpoint**: `GET /analytics/digital-kpis/{organization_id}`
+
+**Data Source**: `digital_metrics` (most recent month)
+
+**Test Command**:
+```bash
+curl -X GET "${API_URL}/analytics/digital-kpis/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+
+**Expected Response Fields**:
+- `sessions`: Website sessions
+- `avg_session_duration`: Seconds
+- `bounce_rate`: Percentage
+- `email_sends`, `email_opens`, `email_clicks`
+- `email_ctr`: Click-through rate
+- `conversion_to_donation`, `conversion_to_volunteer`, `conversion_to_newsletter`
+
+**Verify Data**:
+```sql
+SELECT *
+FROM digital_metrics
+WHERE organization_id = 'YOUR_ORG_ID'
+ORDER BY metric_date DESC
+LIMIT 1;
+```
+
+---
+
+### 9. High Impact Targets
+**Endpoint**: `GET /analytics/high-impact-targets/{organization_id}`
+
+**Data Source**: `strategic_initiatives`, `initiative_milestones`
+
+**Test Command**:
+```bash
+# All initiatives
+curl -X GET "${API_URL}/analytics/high-impact-targets/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+
+# Filter by timeframe
+curl -X GET "${API_URL}/analytics/high-impact-targets/${ORG_ID}?timeframe=90_day" \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+
+**Query Parameters**:
+- `timeframe`: `90_day` or `1_year`
+
+**Expected Response**: Array of initiatives with:
+- `title`, `owner`, `due_date`
+- `status`: G (green), A (amber), R (red)
+- `expected_lift`: Financial impact
+- `milestones`: Array of milestone objects
+- `risk_flags`: Array of risk descriptions
+
+**Verify Data**:
+```sql
+SELECT si.*,
+       COUNT(im.id) as milestone_count
+FROM strategic_initiatives si
+LEFT JOIN initiative_milestones im ON si.id = im.initiative_id
+WHERE si.organization_id = 'YOUR_ORG_ID'
+GROUP BY si.id;
+```
+
+---
+
+## 🚀 Advanced Analytics Endpoints
+
+### 10. Donor Lifecycle Analytics
+**Endpoint**: `GET /analytics/advanced/donor-lifecycle/{organization_id}`
+
+**Data Source**: `parties`, `donations`, calculated cohorts
+
+**Test Command**:
+```bash
+# Full analysis
+curl -X GET "${API_URL}/analytics/advanced/donor-lifecycle/${ORG_ID}?include_at_risk=true" \
+  -H "Authorization: Bearer ${TOKEN}"
+
+# Only high-risk donors
+curl -X GET "${API_URL}/analytics/advanced/donor-lifecycle/${ORG_ID}?include_at_risk=true&risk_threshold=high" \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+
+**Query Parameters**:
+- `include_at_risk`: Include at-risk donor details (default: true)
+- `risk_threshold`: `low`, `medium`, `high`, `critical`
+
+**Expected Response Sections**:
+- `lifecycle_stages`: Distribution across 6 stages
+- `cohort_analysis`: Retention by acquisition cohort
+- `at_risk_donors`: Detailed list of at-risk donors
+- `summary_metrics`: Overall health metrics
+
+**Download CSV**:
+```bash
+curl -X GET "${API_URL}/analytics/advanced/donor-lifecycle/${ORG_ID}/download-at-risk?risk_threshold=critical" \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -o at_risk_critical.csv
+```
+
+**Verify Data**:
+```sql
+-- Check at-risk major donors
+SELECT p.display_name,
+       MAX(d.received_date) as last_donation,
+       NOW() - MAX(d.received_date) as days_since_last,
+       COUNT(*) as total_donations,
+       SUM(d.intent_amount) as lifetime_value
+FROM parties p
+JOIN donations d ON p.id = d.party_id
+WHERE p.organization_id = 'YOUR_ORG_ID'
+GROUP BY p.id, p.display_name
+HAVING SUM(d.intent_amount) >= 5000
+   AND MAX(d.received_date) < NOW() - INTERVAL '180 days'
+ORDER BY lifetime_value DESC;
+```
+
+---
+
+### 11. Missional Impact Correlation
+**Endpoint**: `GET /analytics/advanced/impact-correlation/{organization_id}`
+
+**Data Source**: `programs`, `donation_lines`, `service_events`, `outcome_records`
+
+**Test Command**:
+```bash
+curl -X GET "${API_URL}/analytics/advanced/impact-correlation/${ORG_ID}?lag_months=3" \
+  -H "Authorization: Bearer ${TOKEN}"
+
+# Custom date range
+curl -X GET "${API_URL}/analytics/advanced/impact-correlation/${ORG_ID}?start_date=2024-01-01T00:00:00Z&end_date=2025-10-12T23:59:59Z&lag_months=3" \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+
+**Query Parameters**:
+- `start_date`: Analysis start (ISO 8601)
+- `end_date`: Analysis end (ISO 8601)
+- `lag_months`: Time between funding and outcomes (default: 3)
+
+**Expected Response Sections**:
+- `impact_mappings`: Program unit costs and formulas
+- `correlations`: Funding-to-outcome analysis per program
+- `summary`: Aggregate metrics and key findings
+
+**Verify Data**:
+```sql
+-- Check program funding and outcomes
+SELECT p.id, p.code, p.description,
+       SUM(dl.amount) as total_funding,
+       COUNT(DISTINCT se.id) as service_events,
+       SUM(se.units_delivered) as total_units
+FROM programs p
+LEFT JOIN donation_lines dl ON p.id = dl.program_id
+LEFT JOIN service_events se ON p.id = se.program_id
+WHERE p.organization_id = 'YOUR_ORG_ID'
+GROUP BY p.id;
+```
+
+---
+
+### 12. WiseInvestor 2×2 Matrix
+**Endpoint**: `POST /analytics/advanced/wise-investor/{organization_id}`
+
+**Data Source**: Request body (no database data required)
+
+**Test Command**:
+```bash
+curl -X POST "${API_URL}/analytics/advanced/wise-investor/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '[
+    {
+      "name": "Monthly Giving Program",
+      "description": "Launch recurring donation program",
+      "strategic_alignment_score": 9.0,
+      "investment_maturity_score": 3.0,
+      "estimated_cost": 15000,
+      "expected_benefit": "Increase recurring revenue by 30%"
+    },
+    {
+      "name": "New CRM System",
+      "description": "Replace legacy donor database",
+      "strategic_alignment_score": 8.5,
+      "investment_maturity_score": 8.0,
+      "estimated_cost": 75000,
+      "expected_benefit": "Improve donor retention"
+    },
+    {
+      "name": "Website Refresh",
+      "strategic_alignment_score": 4.0,
+      "investment_maturity_score": 3.0,
+      "estimated_cost": 5000
+    },
+    {
+      "name": "Office Expansion",
+      "strategic_alignment_score": 3.0,
+      "investment_maturity_score": 9.0,
+      "estimated_cost": 100000
+    }
+  ]'
+```
+
+**Expected Response**:
+- Initiatives classified into 4 quadrants:
+  - **Quick Wins**: High strategy, low investment
+  - **Big Bets**: High strategy, high investment
+  - **Fill-Ins**: Low strategy, low investment
+  - **Money Pits**: Low strategy, high investment
+
+---
+
+## 🔍 Utility Endpoints
+
+### Dashboard Summary
+```bash
+curl -X GET "${API_URL}/analytics/dashboard-summary/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+
+### Alerts & Notifications
+```bash
+curl -X GET "${API_URL}/analytics/alerts/${ORG_ID}" \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+
+---
+
+## 🧪 Testing Checklist
+
+- [ ] All Core Analytics endpoints (1-9) return data
+- [ ] Advanced Analytics endpoints (10-12) return data
+- [ ] Download CSV endpoint works
+- [ ] Query parameters filter correctly
+- [ ] YoY deltas show reasonable changes
+- [ ] Multi-year data spans expected range
+- [ ] At-risk donors identified correctly
+- [ ] SWOT shows 3 items per category
+- [ ] Program impact metrics calculated
+- [ ] Digital KPIs show realistic values
+- [ ] Strategic initiatives have milestones
+- [ ] WiseInvestor matrix classifies correctly
+
+---
+
+## 📊 Quick Verification Queries
+
+### Check all data exists
+```sql
+-- Should all return > 0
+SELECT 'strategic_planning' as table_name, COUNT(*) FROM strategic_planning WHERE organization_id = 'YOUR_ORG_ID'
+UNION ALL
+SELECT 'swot_analysis', COUNT(*) FROM swot_analysis WHERE organization_id = 'YOUR_ORG_ID'
+UNION ALL
+SELECT 'digital_metrics', COUNT(*) FROM digital_metrics WHERE organization_id = 'YOUR_ORG_ID'
+UNION ALL
+SELECT 'audience_tracking', COUNT(*) FROM audience_tracking WHERE organization_id = 'YOUR_ORG_ID'
+UNION ALL
+SELECT 'strategic_initiatives', COUNT(*) FROM strategic_initiatives WHERE organization_id = 'YOUR_ORG_ID'
+UNION ALL
+SELECT 'donations', COUNT(*) FROM donations WHERE organization_id = 'YOUR_ORG_ID';
+```
+
+### Check channel distribution
+```sql
+SELECT channel, COUNT(*), ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 2) as percentage
+FROM donations
+WHERE organization_id = 'YOUR_ORG_ID'
+GROUP BY channel;
+-- Should show: online ~35%, offline ~45%, event ~20%
+```
+
+### Check time range
+```sql
+SELECT MIN(received_date) as earliest, MAX(received_date) as latest
+FROM donations
+WHERE organization_id = 'YOUR_ORG_ID';
+-- Should span ~2 years
+```
+
+---
+
+## 💡 Tips
+
+1. **Use jq for JSON formatting**:
+```bash
+curl ... | jq '.'
+```
+
+2. **Save responses for comparison**:
+```bash
+curl ... > response.json
+```
+
+3. **Check error responses**:
+```bash
+curl -v ...  # Verbose mode shows status codes
+```
+
+4. **Test rate limits** by making rapid requests
+
+5. **Verify auth** by testing without token (should get 401)
+
+---
+
+**Ready to test?** Start with the Dashboard Summary endpoint to get links to all other endpoints!
